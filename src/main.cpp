@@ -13,12 +13,11 @@
 
 #define NAME_PREFIX "FkmTimerSAt"
 #define WIFI_PASSWORD "FkmTimer"
-#define CHIP "esp12f"
 
-#define RFID_CS 5
-#define RFID_SCK 18
-#define RFID_MISO 19
-#define RFID_MOSI 23
+#define RFID_CS 16
+#define RFID_SCK 14
+#define RFID_MISO 12
+#define RFID_MOSI 13
 
 WebSocketsClient webSocket;
 
@@ -174,6 +173,7 @@ void webSocketEvent(WStype_t type, uint8_t *payload, size_t length) {
     webSocket.sendBIN((uint8_t *)NULL, 0);
   } else if (type == WStype_CONNECTED) {
     Serial.println("Connected to WebSocket server");
+    sendAddDevice(webSocket);
   } else if (type == WStype_DISCONNECTED) {
     Serial.println("Disconnected from WebSocket server");
   }

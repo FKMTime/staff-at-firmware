@@ -4,6 +4,7 @@
 #include <Arduino.h>
 #include <ESP8266mDNS.h>
 #include <ws_logger.h>
+#include <WebSocketsClient.h>
 
 unsigned long getEspId() {
     uint64_t efuse = ESP.getChipId();
@@ -81,6 +82,27 @@ String getWsUrl() {
   MDNS.end();
 
   return "";
+}
+
+void sendBatteryStats(WebSocketsClient webSocket, float level, float voltage) {
+  JsonDocument doc;
+  doc["battery"]["esp_id"] = getEspId();
+  doc["battery"]["level"] = level;
+  doc["battery"]["voltage"] = voltage;
+
+  String json;
+  serializeJson(doc, json);
+  webSocket.sendTXT(json);
+}
+
+void sendAddDevice(WebSocketsClient webSocket) {
+  JsonDocument doc;
+  doc["add"]["esp_id"] = getEspId();
+  doc["add"]["firmware"] = FIRMWARE_TYPE;
+
+  String json;
+  serializeJson(doc, json);
+  webSocket.sendTXT(json);
 }
 
 #endif
