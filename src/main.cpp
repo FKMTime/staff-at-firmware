@@ -19,6 +19,8 @@
 #define RFID_MISO 12
 #define RFID_MOSI 13
 
+#define LED_PIN 4
+
 WebSocketsClient webSocket;
 
 MFRC522DriverPinSimple ss_pin(RFID_CS);
@@ -28,6 +30,10 @@ MFRC522 mfrc522{driver};
 void initWifi();
 
 void setup() {
+  pinMode(LED_PIN, OUTPUT);
+  pinMode(0, INPUT_PULLUP);
+  digitalWrite(LED_PIN, LOW);
+
   Serial.begin(115200);
   Logger.begin(&Serial);
   SPI.pins(RFID_SCK, RFID_MISO, RFID_MOSI, RFID_CS);
@@ -38,6 +44,14 @@ void setup() {
 
 unsigned long lastCardReadTime = 0;
 void loop() {
+
+  // TODO: remove this
+  if(digitalRead(0) == LOW) {
+    sendAttendance(&webSocket, 65436534, LED_PIN); // FOR TESTING
+
+    while(digitalRead(0) == LOW) {}
+  }
+
   delay(15);
 
   webSocket.loop();
@@ -49,14 +63,7 @@ void loop() {
 
   unsigned long cardId = mfrc522.uid.uidByte[0] + (mfrc522.uid.uidByte[1] << 8) + (mfrc522.uid.uidByte[2] << 16) + (mfrc522.uid.uidByte[3] << 24);
   Logger.printf("Scanned card ID: %lu\n", cardId);
-
-  JsonDocument doc;
-  doc["card_info_request"]["card_id"] = cardId;
-  doc["card_info_request"]["esp_id"] = getEspId();
-
-  String json;
-  serializeJson(doc, json);
-  webSocket.sendTXT(json);
+  sendAttendance(&webSocket, cardId, LED_PIN);
 
   mfrc522.PICC_HaltA();
   lastCardReadTime = millis();
@@ -68,6 +75,7 @@ String wsURL = "";
 // OTA
 int sketchSize = 0;
 int sketchSizeRemaining = 0;
+int chunksTransfered = 0;
 bool update = false;
 
 void initWs() {
@@ -116,6 +124,7 @@ void webSocketEvent(WStype_t type, uint8_t *payload, size_t length) {
     deserializeJson(doc, payload);
 
     if (doc.containsKey("start_update")) {
+      digitalWrite(LED_PIN, LOW);
       if (update) {
         ESP.restart();
       }
@@ -139,6 +148,13 @@ void webSocketEvent(WStype_t type, uint8_t *payload, size_t length) {
 
       update = true;
       webSocket.sendBIN((uint8_t *)NULL, 0);
+    } else if(doc.containsKey("attendance_marked")) {
+      if (doc["attendance_marked"]["esp_id"] != getEspId()) {
+        Logger.printf("Wrong attendance marked frame!\n");
+        return;
+      }
+
+      digitalWrite(LED_PIN, HIGH);
     }
   } else if (type == WStype_BIN) {
     if (Update.write(payload, length) != length) {
@@ -150,7 +166,13 @@ void webSocketEvent(WStype_t type, uint8_t *payload, size_t length) {
     }
 
     sketchSizeRemaining -= length;
-    // int percentage = ((sketchSize - sketchSizeRemaining) * 100) / sketchSize;
+    chunksTransfered++;
+
+    if (chunksTransfered % 10 == 0) {
+      digitalWrite(LED_PIN, HIGH);
+      delay(50);
+      digitalWrite(LED_PIN, LOW);
+    }
 
     if (sketchSizeRemaining <= 0) {
       Logger.printf("[Update] Left 0, delay 1s\n");
@@ -174,7 +196,9 @@ void webSocketEvent(WStype_t type, uint8_t *payload, size_t length) {
   } else if (type == WStype_CONNECTED) {
     Serial.println("Connected to WebSocket server");
     sendAddDevice(&webSocket);
+    digitalWrite(LED_PIN, HIGH);
   } else if (type == WStype_DISCONNECTED) {
     Serial.println("Disconnected from WebSocket server");
+    digitalWrite(LED_PIN, LOW);
   }
 }

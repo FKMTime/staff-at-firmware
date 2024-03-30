@@ -105,4 +105,24 @@ void sendAddDevice(WebSocketsClient *webSocket) {
   webSocket->sendTXT(json);
 }
 
+void sendAttendance(WebSocketsClient *webSocket, unsigned long cardId, int led_pin) {
+  JsonDocument doc;
+  doc["card_info_request"]["card_id"] = cardId;
+  doc["card_info_request"]["esp_id"] = getEspId();
+  doc["card_info_request"]["attendance_device"] = true;
+  
+  String json;
+  serializeJson(doc, json);
+  webSocket->sendTXT(json);
+  
+  for(int i = 0; i < 3; i++) {
+    digitalWrite(led_pin, LOW);
+    delay(100);
+    digitalWrite(led_pin, HIGH);
+    delay(100);
+  }
+
+  digitalWrite(led_pin, LOW);
+}
+
 #endif
