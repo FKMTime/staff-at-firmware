@@ -173,7 +173,7 @@ void webSocketEvent(WStype_t type, uint8_t *payload, size_t length) {
     webSocket.sendBIN((uint8_t *)NULL, 0);
   } else if (type == WStype_CONNECTED) {
     Serial.println("Connected to WebSocket server");
-    sendAddDevice(webSocket);
+    sendAddDevice(&webSocket);
   } else if (type == WStype_DISCONNECTED) {
     Serial.println("Disconnected from WebSocket server");
   }

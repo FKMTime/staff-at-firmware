@@ -84,7 +84,7 @@ String getWsUrl() {
   return "";
 }
 
-void sendBatteryStats(WebSocketsClient webSocket, float level, float voltage) {
+void sendBatteryStats(WebSocketsClient *webSocket, float level, float voltage) {
   JsonDocument doc;
   doc["battery"]["esp_id"] = getEspId();
   doc["battery"]["level"] = level;
@@ -92,17 +92,17 @@ void sendBatteryStats(WebSocketsClient webSocket, float level, float voltage) {
 
   String json;
   serializeJson(doc, json);
-  webSocket.sendTXT(json);
+  webSocket->sendTXT(json);
 }
 
-void sendAddDevice(WebSocketsClient webSocket) {
+void sendAddDevice(WebSocketsClient *webSocket) {
   JsonDocument doc;
   doc["add"]["esp_id"] = getEspId();
   doc["add"]["firmware"] = FIRMWARE_TYPE;
 
   String json;
   serializeJson(doc, json);
-  webSocket.sendTXT(json);
+  webSocket->sendTXT(json);
 }
 
 #endif
