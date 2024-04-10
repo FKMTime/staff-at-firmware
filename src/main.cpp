@@ -44,12 +44,6 @@ void setup() {
 
 unsigned long lastCardReadTime = 0;
 void loop() {
-  // TODO: remove this
-  if(digitalRead(0) == LOW) {
-    sendAttendance(&webSocket, 65436534, LED_PIN); // FOR TESTING
-    while(digitalRead(0) == LOW) {}
-  }
-
   delay(15);
 
   webSocket.loop();
