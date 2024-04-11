@@ -32,6 +32,11 @@ void initWifi();
 void setup() {
   pinMode(LED_PIN, OUTPUT);
   pinMode(0, INPUT_PULLUP);
+
+  digitalWrite(LED_PIN, LOW);
+  delay(100);
+  digitalWrite(LED_PIN, HIGH);
+  delay(500);
   digitalWrite(LED_PIN, LOW);
 
   Serial.begin(115200);

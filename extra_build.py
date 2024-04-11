@@ -6,7 +6,7 @@ def after_build(source, target, env):
     buildTime = os.popen("cat src/version.h | grep \"BUILD_TIME\" | cut -d'\"' -f 2").read().strip()
     firmwareType = os.popen("cat src/version.h | grep \"FIRMWARE_TYPE\" | cut -d'\"' -f 2").read().strip()
     chip = os.popen("cat src/version.h | grep \"CHIP\" | cut -d'\"' -f 2").read().strip()
-    bin_name = f"{env['BOARD_MCU']}.{firmwareType}.{version}.bin"
+    bin_name = f"{env['BOARD_MCU']}.{firmwareType}.{buildTime}.bin"
     os.popen(f"mkdir -p ../build ; rm -f ../build/{chip}.{firmwareType}.*.bin ; cp {source[0].get_abspath()} ../build/{bin_name}")
 
 def generate_version():
