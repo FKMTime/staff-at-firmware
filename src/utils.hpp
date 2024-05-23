@@ -75,9 +75,10 @@ String getWsUrl() {
   int n = MDNS.queryService("stackmat", "tcp");
   if (n > 0) {
     Logger.printf("Found stackmat MDNS:\nHostname: %s, IP: %s, PORT: %d\n",
-                  MDNS.hostname(0).c_str(), MDNS.IP(0).toString().c_str(),
+                  "MDNS.answerTxts(\"ws\", 0)", MDNS.IP(0).toString().c_str(),
                   MDNS.port(0));
-    return MDNS.hostname(0);
+
+    return "ws://" + MDNS.IP(0).toString() + ":" + String(MDNS.port(0));
   }
   MDNS.end();
 
