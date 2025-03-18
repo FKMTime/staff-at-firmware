@@ -1,6 +1,6 @@
 use crate::consts::RFID_RETRY_INIT_MS;
 use crate::state::GlobalState;
-use crate::structs::CardInfoResponsePacket;
+use crate::structs::AttendanceMarkedPacket;
 use embassy_time::{Duration, Timer};
 use esp_hal::time::Rate;
 use esp_hal::{
@@ -90,7 +90,7 @@ pub async fn rfid_task(
         };
         log::info!("Card UID: {card_uid}");
 
-        let resp = crate::ws::send_request::<CardInfoResponsePacket>(
+        let resp = crate::ws::send_request::<AttendanceMarkedPacket>(
             crate::structs::TimerPacketInner::CardInfoRequest {
                 card_id: card_uid as u64,
                 attendance_device: Some(true),

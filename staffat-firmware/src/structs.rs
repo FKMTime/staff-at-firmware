@@ -43,7 +43,6 @@ pub enum TimerPacketInner {
         #[serde(skip_serializing_if = "Option::is_none")]
         attendance_device: Option<bool>,
     },
-    CardInfoResponse(CardInfoResponsePacket),
     AttendanceMarked,
     DeviceSettings {
         added: bool,
@@ -64,12 +63,7 @@ pub enum TimerPacketInner {
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct CardInfoResponsePacket {
-    pub card_id: u64,
-    pub display: String,
-    pub country_iso2: String,
-    pub can_compete: bool,
-}
+pub struct AttendanceMarkedPacket {}
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct ApiError {
@@ -81,15 +75,13 @@ pub trait FromPacket: Sized {
     fn from_packet(packet: TimerPacket) -> Result<Self, ApiError>;
 }
 
-impl FromPacket for CardInfoResponsePacket {
+impl FromPacket for AttendanceMarkedPacket {
     fn from_packet(packet: TimerPacket) -> Result<Self, ApiError> {
         match packet.data {
-            TimerPacketInner::CardInfoResponse(card_info_response_packet) => {
-                Ok(card_info_response_packet)
-            }
+            TimerPacketInner::AttendanceMarked => Ok(AttendanceMarkedPacket {}),
             TimerPacketInner::ApiError(api_error) => Err(api_error),
             _ => Err(ApiError {
-                error: "Wrong response type!".to_string(),
+                error: alloc::format!("Wrong response type! ({:?})", packet),
                 should_reset_time: false,
             }),
         }
