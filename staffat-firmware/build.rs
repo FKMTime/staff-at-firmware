@@ -39,7 +39,7 @@ fn main() {
     let gen = VERSION_TEMPLATE
         .replace("{version}", &version_str)
         .replace("{hw}", hw)
-        .replace("{firmware}", "STAFFAT");
+        .replace("{firmware}", "STAFF_ATTENDANCE");
 
     let out_dir = PathBuf::from(std::env::var("OUT_DIR").unwrap());
     std::fs::write(out_dir.join("version.rs"), gen.trim()).unwrap();

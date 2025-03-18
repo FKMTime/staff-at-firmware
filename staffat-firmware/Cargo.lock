@@ -876,6 +876,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "91b338ab6acb947c3589e8c086541b5a44c74afe5aba97c38090090c7952ea6c"
 dependencies = [
  "embedded-storage",
+ "esp32c3",
  "log",
 ]
 
@@ -1843,6 +1844,7 @@ dependencies = [
  "esp-wifi",
  "esp32c3",
  "getrandom",
+ "heapless 0.8.0",
  "log",
  "nb 1.1.0",
  "rand_core",

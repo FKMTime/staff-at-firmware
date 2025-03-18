@@ -1,0 +1,129 @@
+use crate::{
+    consts::BATTERY_SEND_INTERVAL_MS, state::sleep_state, utils::rolling_average::RollingAverage,
+};
+use embassy_time::{Instant, Timer};
+use esp_hal::{
+    analog::adc::{Adc, AdcConfig, Attenuation},
+    gpio::GpioPin,
+};
+
+macro_rules! nb_to_fut {
+    ($item:expr) => {
+        async {
+            loop {
+                match $item {
+                    Ok(val) => return Ok(val),
+                    Err(nb::Error::WouldBlock) => {
+                        Timer::after_micros(10).await;
+                        continue;
+                    }
+                    Err(nb::Error::Other(e)) => return Err(e),
+                }
+            }
+        }
+    };
+}
+
+type AdcCal = esp_hal::analog::adc::AdcCalBasic<esp_hal::peripherals::ADC1>;
+
+const BAT_MIN: f64 = 3200.0;
+const BAT_MAX: f64 = 4200.0;
+const BATTERY_CURVE: [(f64, u8); 11] = [
+    (3200.0, 0),
+    (3250.0, 5),
+    (3300.0, 10),
+    (3350.0, 20),
+    (3400.0, 30),
+    (3500.0, 40),
+    (3600.0, 50),
+    (3700.0, 60),
+    (3800.0, 70),
+    (3900.0, 80),
+    (4200.0, 100),
+];
+
+#[embassy_executor::task]
+pub async fn battery_read_task(
+    adc_pin: GpioPin<2>,
+    adc: esp_hal::peripherals::ADC1,
+    state: crate::state::GlobalState,
+) {
+    let mut adc_config = AdcConfig::new();
+    let mut adc_pin = adc_config.enable_pin_with_cal::<_, AdcCal>(adc_pin, Attenuation::_11dB);
+    let mut adc = Adc::new(adc, adc_config);
+
+    let mut battery_start = Instant::now();
+
+    let base_freq = 2.0;
+    let sample_freq = 1000.0;
+    let sensitivity = 0.5;
+    let mut smoother = dyn_smooth::DynamicSmootherEcoF32::new(base_freq, sample_freq, sensitivity);
+    let mut avg = RollingAverage::<128>::new();
+
+    loop {
+        Timer::after_millis(100).await;
+        if sleep_state() {
+            Timer::after_millis(500).await;
+            continue;
+        }
+
+        let read = nb_to_fut!(adc.read_oneshot(&mut adc_pin))
+            .await
+            .unwrap_or(0);
+
+        let read = smoother.tick(read as f32);
+        avg.push(read);
+
+        if (Instant::now() - battery_start).as_millis() < BATTERY_SEND_INTERVAL_MS {
+            continue;
+        }
+
+        battery_start = Instant::now();
+        let bat_calc_mv = calculate(read as f64);
+        let bat_percentage = bat_percentage(bat_calc_mv);
+
+        if state.state.lock().await.server_connected == Some(true) {
+            crate::ws::send_packet(crate::structs::TimerPacket {
+                tag: None,
+                data: crate::structs::TimerPacketInner::Battery {
+                    level: Some(bat_percentage as f64),
+                    voltage: Some(bat_calc_mv / 1000.0),
+                },
+            })
+            .await;
+        }
+
+        log::info!("calc({read}): {bat_calc_mv}mV {bat_percentage}%");
+    }
+}
+
+fn interpolate(v1: f64, p1: u8, v2: f64, p2: u8, voltage: f64) -> u8 {
+    let percentage = p1 as f64 + (voltage - v1) * (p2 as f64 - p1 as f64) / (v2 - v1);
+    percentage as u8
+}
+
+fn bat_percentage(mv: f64) -> u8 {
+    if mv <= BAT_MIN {
+        return 0;
+    }
+    if mv >= BAT_MAX {
+        return 100;
+    }
+
+    // Find the two closest voltage points in our curve
+    for window in BATTERY_CURVE.windows(2) {
+        let (v1, p1) = window[0];
+        let (v2, p2) = window[1];
+
+        if mv >= v1 && mv <= v2 {
+            return interpolate(v1, p1, v2, p2, mv);
+        }
+    }
+
+    // Fallback to linear interpolation if something goes wrong
+    ((mv - BAT_MIN) / (BAT_MAX - BAT_MIN) * 100.0) as u8
+}
+
+fn calculate(x: f64) -> f64 {
+    1.18323 * x + 276.754
+}
