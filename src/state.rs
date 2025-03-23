@@ -1,7 +1,8 @@
 use crate::utils::signaled_mutex::SignaledMutex;
 use alloc::rc::Rc;
-use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
-use embassy_time::Instant;
+use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex, mutex::Mutex};
+use embassy_time::{Instant, Timer};
+use esp_hal::gpio::Output;
 use esp_hal_wifimanager::Nvs;
 
 pub static mut EPOCH_BASE: u64 = 0;
@@ -33,13 +34,36 @@ pub type GlobalState = Rc<GlobalStateInner>;
 pub struct GlobalStateInner {
     pub state: SignaledMutex<CriticalSectionRawMutex, SignaledGlobalStateInner>,
     pub nvs: Nvs,
+
+    pub output_led: Mutex<CriticalSectionRawMutex, Output<'static>>,
 }
 
 impl GlobalStateInner {
-    pub fn new(nvs: &Nvs) -> Self {
+    pub fn new(nvs: &Nvs, output_led: Output<'static>) -> Self {
         Self {
             state: SignaledMutex::new(SignaledGlobalStateInner::new()),
             nvs: nvs.clone(),
+            output_led: Mutex::new(output_led),
+        }
+    }
+
+    pub async fn led(&self, state: bool) {
+        let mut output_led = self.output_led.lock().await;
+        output_led.set_level(if state {
+            esp_hal::gpio::Level::High
+        } else {
+            esp_hal::gpio::Level::Low
+        });
+    }
+
+    pub async fn led_blink(&self, count: usize) {
+        let mut output_led = self.output_led.lock().await;
+
+        for _ in 0..count {
+            output_led.set_high();
+            Timer::after_millis(100).await;
+            output_led.set_low();
+            Timer::after_millis(100).await;
         }
     }
 }

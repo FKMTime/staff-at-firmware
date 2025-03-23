@@ -80,17 +80,12 @@ async fn main(spawner: Spawner) {
     esp_hal_embassy::init(timer0.alarm0);
     FkmLogger::set_logger();
 
-    let mut led = Output::new(peripherals.GPIO3, Level::Low, Default::default());
+    let led = Output::new(peripherals.GPIO3, Level::Low, Default::default());
     let nvs = Nvs::new_from_part_table().expect("Wrong partition configuration!");
-    let global_state = Rc::new(GlobalStateInner::new(&nvs));
+    let global_state = Rc::new(GlobalStateInner::new(&nvs, led));
     let wifi_setup_sig = Rc::new(Signal::new());
 
-    for _ in 0..3 {
-        led.set_high();
-        Timer::after_millis(100).await;
-        led.set_low();
-        Timer::after_millis(100).await;
-    }
+    global_state.led_blink(3).await;
 
     spawner.must_spawn(battery::battery_read_task(
         peripherals.GPIO2,
@@ -200,6 +195,7 @@ async fn main(spawner: Spawner) {
     spawner.must_spawn(logger_task(global_state.clone()));
     set_brownout_detection(true);
 
+    global_state.led(true).await;
     let mut last_sleep = false;
     loop {
         Timer::after_millis(100).await;

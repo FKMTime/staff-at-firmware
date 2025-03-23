@@ -19,7 +19,7 @@ pub async fn rfid_task(
     cs_pin: esp_hal::gpio::Output<'static>,
     spi: esp_hal::peripherals::SPI2,
     dma_chan: esp_hal::dma::DmaChannel0,
-    _global_state: GlobalState,
+    global_state: GlobalState,
 ) {
     let (rx_buffer, rx_descriptors, tx_buffer, tx_descriptors) = dma_buffers!(512);
     let dma_tx_buf = DmaTxBuf::new(tx_descriptors, tx_buffer).expect("Dma tx buf failed");
@@ -89,6 +89,7 @@ pub async fn rfid_task(
             continue;
         };
         log::info!("Card UID: {card_uid}");
+        global_state.led_blink(2).await;
 
         let resp = crate::ws::send_request::<AttendanceMarkedPacket>(
             crate::structs::TimerPacketInner::CardInfoRequest {
@@ -97,6 +98,7 @@ pub async fn rfid_task(
             },
         )
         .await;
+        global_state.led(true).await;
 
         match resp {
             Ok(resp) => {
