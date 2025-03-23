@@ -56,14 +56,14 @@ impl GlobalStateInner {
         });
     }
 
-    pub async fn led_blink(&self, count: usize) {
+    pub async fn led_blink(&self, count: usize, length: u64) {
         let mut output_led = self.output_led.lock().await;
 
         for _ in 0..count {
             output_led.set_high();
-            Timer::after_millis(100).await;
+            Timer::after_millis(length).await;
             output_led.set_low();
-            Timer::after_millis(100).await;
+            Timer::after_millis(length).await;
         }
     }
 }

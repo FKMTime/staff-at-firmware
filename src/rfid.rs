@@ -89,7 +89,7 @@ pub async fn rfid_task(
             continue;
         };
         log::info!("Card UID: {card_uid}");
-        global_state.led_blink(2).await;
+        global_state.led_blink(2, 100).await;
 
         let resp = crate::ws::send_request::<AttendanceMarkedPacket>(
             crate::structs::TimerPacketInner::CardInfoRequest {

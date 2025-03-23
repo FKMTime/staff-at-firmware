@@ -41,6 +41,7 @@ esp-hal-mfrc522 = { version = "0.2.1", features = ["embassy-time"] }
 heapless = "0.8.0"
 
 [features]
+default = ["esp32c3"]
 esp32c3 = []
 gen_version = []
 release_build = []

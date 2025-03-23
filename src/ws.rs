@@ -222,6 +222,7 @@ async fn ws_rw(
     let tagged_publisher = TAGGED_RETURN.publisher().map_err(|_| ())?;
     let recv = FRAME_CHANNEL.receiver();
 
+    let mut last_update_percentage = 101;
     loop {
         let read_fut = tls.read(framer_rx.mut_buf());
         let write_fut = recv.receive();
@@ -291,6 +292,8 @@ async fn ws_rw(
                                     crate::state::OTA_STATE = true;
                                 }
 
+                                global_state.led_blink(5, 25).await;
+
                                 FRAME_CHANNEL
                                     .send(WsFrameOwned::Binary(alloc::vec::Vec::new()))
                                     .await;
@@ -320,6 +323,11 @@ async fn ws_rw(
 
                     let progress = (ota.get_ota_progress() * 100.0) as u8;
                     log::info!("Update progress: {progress}%");
+
+                    if progress != last_update_percentage && progress % 10 == 0 {
+                        global_state.led_blink(1, 25).await;
+                        last_update_percentage = progress;
+                    }
 
                     FRAME_CHANNEL
                         .send(WsFrameOwned::Binary(alloc::vec::Vec::new()))

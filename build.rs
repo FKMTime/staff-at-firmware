@@ -31,7 +31,7 @@ fn main() {
     };
 
     let hw = if cfg!(feature = "esp32c3") {
-        "v2"
+        "v3"
     } else {
         "unknown"
     };

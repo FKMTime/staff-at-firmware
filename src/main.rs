@@ -79,13 +79,14 @@ async fn main(spawner: Spawner) {
     let timer0 = SystemTimer::new(peripherals.SYSTIMER);
     esp_hal_embassy::init(timer0.alarm0);
     FkmLogger::set_logger();
+    log::info!("Firmware Version: {}", version::VERSION);
 
     let led = Output::new(peripherals.GPIO3, Level::Low, Default::default());
     let nvs = Nvs::new_from_part_table().expect("Wrong partition configuration!");
     let global_state = Rc::new(GlobalStateInner::new(&nvs, led));
     let wifi_setup_sig = Rc::new(Signal::new());
 
-    global_state.led_blink(3).await;
+    global_state.led_blink(3, 100).await;
 
     spawner.must_spawn(battery::battery_read_task(
         peripherals.GPIO2,
