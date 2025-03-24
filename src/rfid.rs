@@ -1,7 +1,11 @@
-use crate::consts::RFID_RETRY_INIT_MS;
-use crate::state::GlobalState;
+use crate::consts::{DEEPER_SLEEP_AFTER_MS, RFID_RETRY_INIT_MS, SLEEP_AFTER_MS};
+use crate::state::{deeper_sleep_state, sleep_state, GlobalState, SLEEP_STATE};
 use crate::structs::AttendanceMarkedPacket;
-use embassy_time::{Duration, Timer};
+use crate::utils::deeper_sleep;
+use alloc::rc::Rc;
+use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
+use embassy_sync::signal::Signal;
+use embassy_time::{Duration, Instant, Timer};
 use esp_hal::time::Rate;
 use esp_hal::{
     dma::{DmaRxBuf, DmaTxBuf},
@@ -20,6 +24,7 @@ pub async fn rfid_task(
     spi: esp_hal::peripherals::SPI2,
     dma_chan: esp_hal::dma::DmaChannel0,
     global_state: GlobalState,
+    ws_connect_signal: Rc<Signal<CriticalSectionRawMutex, ()>>,
 ) {
     let (rx_buffer, rx_descriptors, tx_buffer, tx_descriptors) = dma_buffers!(512);
     let dma_tx_buf = DmaTxBuf::new(tx_descriptors, tx_buffer).expect("Dma tx buf failed");
@@ -57,25 +62,62 @@ pub async fn rfid_task(
     }
     log::debug!("PCD ver: {:?}", mfrc522.pcd_get_version().await);
 
-    //let mut rfid_sleep = false;
-    loop {
-        Timer::after(Duration::from_millis(10)).await;
-        // NOTE: rfid doesnt have sleep on this device
-        /*
-        if sleep_state() != rfid_sleep {
-            rfid_sleep = sleep_state();
+    // wait for ws connection
+    ws_connect_signal.wait().await;
 
-            match rfid_sleep {
-                true => _ = mfrc522.pcd_soft_power_down().await,
-                false => _ = mfrc522.pcd_soft_power_up().await,
+    let mut key_buf = [0; 16];
+    if global_state
+        .nvs
+        .get_key(b"DEEP_SLEEP_CARD", &mut key_buf)
+        .await
+        .is_ok()
+    {
+        let card_uid = u128::from_be_bytes(key_buf.into());
+        log::info!("Card UID: {card_uid}");
+        global_state.led_blink(2, 100).await;
+
+        let resp = crate::ws::send_request::<AttendanceMarkedPacket>(
+            crate::structs::TimerPacketInner::CardInfoRequest {
+                card_id: card_uid as u64,
+                attendance_device: Some(true),
+            },
+        )
+        .await;
+        global_state.led(true).await;
+
+        match resp {
+            Ok(resp) => {
+                log::info!("Attendance card response: {resp:?}");
+            }
+            Err(e) => {
+                log::error!(
+                    "[RFID] Resp_error: ({}): {:?}",
+                    e.should_reset_time,
+                    e.error
+                );
             }
         }
 
-        if rfid_sleep {
-            Timer::after(Duration::from_millis(500)).await;
-            continue;
+        _ = global_state.nvs.invalidate_key(b"DEEP_SLEEP_CARD").await;
+    }
+
+    let mut last_scan = Instant::now();
+    //let mut rfid_sleep = false;
+    loop {
+        Timer::after(Duration::from_millis(10)).await;
+        if (Instant::now() - last_scan).as_millis() >= SLEEP_AFTER_MS && !sleep_state() {
+            log::info!("Going into sleep!");
+            unsafe {
+                SLEEP_STATE = true;
+            }
         }
-        */
+
+        if (Instant::now() - last_scan).as_millis() >= DEEPER_SLEEP_AFTER_MS
+            && !deeper_sleep_state()
+        {
+            log::info!("Going into depper sleep!");
+            deeper_sleep();
+        }
 
         if mfrc522.picc_is_new_card_present().await.is_err() {
             continue;
@@ -88,8 +130,29 @@ pub async fn rfid_task(
         else {
             continue;
         };
+
         log::info!("Card UID: {card_uid}");
         global_state.led_blink(2, 100).await;
+        last_scan = Instant::now();
+
+        if sleep_state() {
+            log::info!("Sleep done!");
+            unsafe {
+                SLEEP_STATE = false;
+            }
+        }
+
+        if deeper_sleep_state() {
+            log::info!("Deeper sleep done!");
+            _ = global_state.nvs.invalidate_key(b"DEEP_SLEEP_CARD").await;
+            _ = global_state
+                .nvs
+                .append_key(b"DEEP_SLEEP_CARD", &card_uid.to_be_bytes())
+                .await;
+
+            Timer::after_millis(100).await;
+            esp_hal::system::software_reset();
+        }
 
         let resp = crate::ws::send_request::<AttendanceMarkedPacket>(
             crate::structs::TimerPacketInner::CardInfoRequest {

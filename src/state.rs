@@ -11,6 +11,7 @@ pub static mut DEEPER_SLEEP: bool = false;
 pub static mut OTA_STATE: bool = false;
 
 #[inline(always)]
+#[allow(dead_code)]
 pub fn current_epoch() -> u64 {
     unsafe { EPOCH_BASE + Instant::now().as_secs() }
 }

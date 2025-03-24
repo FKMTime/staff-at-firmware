@@ -17,7 +17,7 @@ use esp_hal::timer::systimer::SystemTimer;
 use esp_hal::timer::timg::TimerGroup;
 use esp_hal_wifimanager::{Nvs, WIFI_NVS_KEY};
 use esp_storage::FlashStorage;
-use state::{ota_state, sleep_state, GlobalState, GlobalStateInner};
+use state::{deeper_sleep_state, ota_state, sleep_state, GlobalState, GlobalStateInner};
 use structs::ConnSettings;
 use utils::logger::FkmLogger;
 use utils::set_brownout_detection;
@@ -85,6 +85,7 @@ async fn main(spawner: Spawner) {
     let nvs = Nvs::new_from_part_table().expect("Wrong partition configuration!");
     let global_state = Rc::new(GlobalStateInner::new(&nvs, led));
     let wifi_setup_sig = Rc::new(Signal::new());
+    let ws_connect_signal = Rc::new(Signal::new());
 
     global_state.led_blink(3, 100).await;
 
@@ -106,6 +107,7 @@ async fn main(spawner: Spawner) {
         peripherals.SPI2,
         peripherals.DMA_CH0,
         global_state.clone(),
+        ws_connect_signal.clone(),
     ));
 
     let mut wm_settings = esp_hal_wifimanager::WmSettings::default();
@@ -191,12 +193,13 @@ async fn main(spawner: Spawner) {
         ws_url,
         global_state.clone(),
         ws_sleep_sig.clone(),
+        ws_connect_signal,
     ));
 
     spawner.must_spawn(logger_task(global_state.clone()));
     set_brownout_detection(true);
 
-    global_state.led(true).await;
+    let mut last_led_blink = Instant::now();
     let mut last_sleep = false;
     loop {
         Timer::after_millis(100).await;
@@ -208,6 +211,21 @@ async fn main(spawner: Spawner) {
                 true => wifi_res.stop_radio(),
                 false => wifi_res.restart_radio(),
             }
+        }
+
+        if deeper_sleep_state() && (Instant::now() - last_led_blink).as_millis() >= 5000 {
+            let mut led = global_state.output_led.lock().await;
+            let initial_level = led.output_level();
+
+            for _ in 0..2 {
+                led.set_high();
+                Timer::after_millis(25).await;
+                led.set_low();
+                Timer::after_millis(25).await;
+            }
+
+            led.set_level(initial_level);
+            last_led_blink = Instant::now();
         }
     }
 }

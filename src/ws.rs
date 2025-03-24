@@ -28,6 +28,7 @@ pub async fn ws_task(
     ws_url: WsUrlOwned,
     global_state: GlobalState,
     ws_sleep_sig: Rc<Signal<CriticalSectionRawMutex, bool>>,
+    ws_connect_signal: Rc<Signal<CriticalSectionRawMutex, ()>>,
 ) {
     log::debug!("ws_url: {ws_url:?}");
 
@@ -56,6 +57,7 @@ pub async fn ws_task(
             &mut ws_tx_buf,
             &mut ssl_rx_buf,
             &mut ssl_tx_buf,
+            &ws_connect_signal,
         );
 
         let res = embassy_futures::select::select(ws_fut, ws_sleep_sig.wait()).await;
@@ -94,9 +96,11 @@ async fn ws_loop(
     ws_tx_buf: &mut [u8],
     ssl_rx_buf: &mut [u8],
     ssl_tx_buf: &mut [u8],
+    ws_connect_signal: &Rc<Signal<CriticalSectionRawMutex, ()>>,
 ) -> Result<(), ()> {
     loop {
         {
+            global_state.led(false).await;
             global_state.state.lock().await.server_connected = Some(false);
             log::info!("Server disconnected!");
         }
@@ -149,7 +153,9 @@ async fn ws_loop(
         };
 
         {
+            global_state.led(true).await;
             global_state.state.lock().await.server_connected = Some(true);
+            ws_connect_signal.signal(());
             log::info!("Server connected!");
         }
 
