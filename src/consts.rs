@@ -1,5 +1,5 @@
-pub const SLEEP_AFTER_MS: u64 = 60000 * 1;
-pub const DEEPER_SLEEP_AFTER_MS: u64 = 60000 * 3;
+pub const SLEEP_AFTER_MS: u64 = 60000 * 15;
+pub const DEEPER_SLEEP_AFTER_MS: u64 = 60000 * 30;
 
 pub const LOG_SEND_INTERVAL_MS: u64 = 5000;
 pub const PRINT_HEAP_INTERVAL_MS: u64 = 30000;
