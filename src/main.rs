@@ -79,7 +79,10 @@ async fn main(spawner: Spawner) {
     let timer0 = SystemTimer::new(peripherals.SYSTIMER);
     esp_hal_embassy::init(timer0.alarm0);
     FkmLogger::set_logger();
-    log::info!("Firmware Version: {}", version::VERSION);
+
+    log::info!("Version: {}", version::VERSION);
+    log::info!("Hardware Rev: {}", version::HW_VER);
+    log::info!("Firmware: {}", version::FIRMWARE);
 
     let led = Output::new(peripherals.GPIO3, Level::Low, Default::default());
     let nvs = Nvs::new_from_part_table().expect("Wrong partition configuration!");
@@ -132,7 +135,7 @@ async fn main(spawner: Spawner) {
     let wifi_res = esp_hal_wifimanager::init_wm(
         wm_settings,
         &spawner,
-        &nvs,
+        Some(&nvs),
         rng,
         timg0.timer0,
         peripherals.RADIO_CLK,

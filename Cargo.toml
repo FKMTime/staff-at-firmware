@@ -11,7 +11,7 @@ esp-alloc = "0.7.0"
 esp-backtrace = { version = "0.15.1", features = [ "esp32c3", "exception-handler", "panic-handler", "println", "custom-pre-backtrace", "custom-halt" ] }
 esp-hal = { version = "1.0.0-beta.0", features = ["esp32c3", "unstable"] }
 esp-println = { version = "0.13.1", features = ["esp32c3", "log"] }
-log = { version = "0.4.26" }
+log = { version = "0.4.27" }
 critical-section = "1.2.0"
 embassy-executor = { version = "0.7.0", features = ["arch-riscv32", "nightly"] }
 embassy-time = { version = "0.4.0", features = ["generic-queue-8"] }
