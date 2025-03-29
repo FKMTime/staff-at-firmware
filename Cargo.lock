@@ -893,7 +893,7 @@ dependencies = [
 [[package]]
 name = "esp-hal-wifimanager"
 version = "0.1.0"
-source = "git+https://github.com/filipton/esp-hal-wifimanager#d2f77485f84d927e5711386ad604722dc5f4d9cb"
+source = "git+https://github.com/filipton/esp-hal-wifimanager#dece8eba738365edaa2e6880c030cbae1527b02d"
 dependencies = [
  "bleps",
  "embassy-executor",
