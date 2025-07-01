@@ -154,25 +154,28 @@ pub async fn rfid_task(
             esp_hal::system::software_reset();
         }
 
-        let resp = crate::ws::send_request::<AttendanceMarkedPacket>(
-            crate::structs::TimerPacketInner::CardInfoRequest {
-                card_id: card_uid as u64,
-                attendance_device: Some(true),
-            },
-        )
-        .await;
-        global_state.led(true).await;
+        for _ in 0..3 {
+            let resp = crate::ws::send_request::<AttendanceMarkedPacket>(
+                crate::structs::TimerPacketInner::CardInfoRequest {
+                    card_id: card_uid as u64,
+                    attendance_device: Some(true),
+                },
+            )
+            .await;
+            global_state.led(true).await;
 
-        match resp {
-            Ok(resp) => {
-                log::info!("Attendance card response: {resp:?}");
-            }
-            Err(e) => {
-                log::error!(
-                    "[RFID] Resp_error: ({}): {:?}",
-                    e.should_reset_time,
-                    e.error
-                );
+            match resp {
+                Ok(resp) => {
+                    log::info!("Attendance card response: {resp:?}");
+                    break;
+                }
+                Err(e) => {
+                    log::error!(
+                        "[RFID] Resp_error: ({}): {:?}",
+                        e.should_reset_time,
+                        e.error
+                    );
+                }
             }
         }
 
